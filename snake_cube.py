@@ -112,7 +112,7 @@ class SnakeCubeSolver(object):
         if index == 63:
             return (cell_locations, cell_axes)
 
-        if self._is_middle_cell(index):
+        if self._is_middle_cell[index]:
             axes = [cell_axes[index - 1]]
         else:
             axes = SnakeCubeSolver._orthogonal_axis_map[cell_axes[index - 1]]
