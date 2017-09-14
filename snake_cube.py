@@ -5,7 +5,7 @@ from pprint import pprint
 
 
 class SnakeCubeSolver(object):
-    _all_axes = ['+x', '-x', '+y', '-y', '+z', '-z']
+    _all_axes = ('+x', '-x', '+y', '-y', '+z', '-z')
     _axis_location_delta_map = {
         '+x': (1, 0, 0),
         '-x': (-1, 0, 0),
@@ -23,7 +23,9 @@ class SnakeCubeSolver(object):
         '-z': ('+x', '-x', '+y', '-y')
     }
 
-    def __init__(self):
+    def __init__(self, dim):
+        self._dim = int(dim)
+        self._num_cells = self._dim ** 3
         self._segment_lengths = None
         self._is_middle_cell = None
 
@@ -37,20 +39,20 @@ class SnakeCubeSolver(object):
         assert self._is_middle_cell is not None
 
         # map of the filled cells
-        filled_cells = np.zeros((4, 4, 4), dtype=bool)
+        filled_cells = np.zeros((self._dim, self._dim, self._dim), dtype=bool)
 
-        # cells[i] = [x, y, z], location for the i-th cell
-        cell_locations = [None] * 64
+        # cell_locations[i] = [x, y, z], location for the i-th cell
+        cell_locations = [None] * self._num_cells
 
-        # axes[i] is the vector direction from cells[i] to cells[i+1]
-        cell_axes = [None] * 63
+        # cell_axes[i] is the vector direction from cells[i] to cells[i+1]
+        cell_axes = [None] * (self._num_cells - 1)
 
         return self._solve(0, filled_cells, cell_locations, cell_axes)
 
     def _segment_lengths_to_middle_cell(self):
         # determine middle cells
         # that is, the cell's input and output axes are parallel
-        is_middle_cell = np.zeros((64,), dtype=bool)
+        is_middle_cell = np.zeros((self._num_cells,), dtype=bool)
         segment_lengths_cumsum = np.cumsum(segment_lengths)
         for segment_index, segment_length in enumerate(segment_lengths):
             start_cell_index = segment_lengths_cumsum[
@@ -70,7 +72,7 @@ class SnakeCubeSolver(object):
         dx, dy, dz = SnakeCubeSolver._axis_location_delta_map[prev_axis]
         location = x + dx, y + dy, z + dz
         for val in location:
-            if val >= 4 or val < 0:
+            if val >= self._dim or val < 0:
                 return None
         if filled_cells[location] == True:
             return None
@@ -79,8 +81,9 @@ class SnakeCubeSolver(object):
     def _solve(self, index, filled_cells, cell_locations, cell_axes):
         # base case
         if index == 0:
-            for init_location in itertools.product(*([list(range(2))] * 3)):
-                print("init location", init_location)
+            half_dim = int((self._dim + 1) / 2)
+            start_index_range = [list(range(half_dim))]
+            for init_location in itertools.product(*(start_index_range * 3)):
                 for init_axis in SnakeCubeSolver._all_axes:
                     # fill the 0-th cell and axis
                     cell_locations[0] = init_location
@@ -108,8 +111,8 @@ class SnakeCubeSolver(object):
         cell_locations[index] = location
         filled_cells[location] = True
 
-        # done if index == 63, cell_locations, cell_axes fully filled
-        if index == 63:
+        # if index == self._num_cells - 1, then done
+        if index == self._num_cells - 1:
             return (cell_locations, cell_axes)
 
         if self._is_middle_cell[index]:
@@ -140,7 +143,7 @@ if __name__ == '__main__':
         [3, 3, 2, 1, 1, 2, 1, 2, 1, 2, 1, 2, 2, 2, 2, 3, 1, 2, 2, 2, 1, 4, 2, 4,
          3, 2, 2, 2, 2, 4, 1], dtype=int)
 
-    solver = SnakeCubeSolver()
+    solver = SnakeCubeSolver(4)
     solver.input_segment_lengths(segment_lengths)
     res = solver.solve()
 
@@ -161,7 +164,3 @@ if __name__ == '__main__':
                              grouped_cell_axes]
 
         pprint(grouped_cell_axes)
-
-        lengths = [y for (x, y) in grouped_cell_axes]
-        total_lengths = np.sum(lengths) - (len(lengths) - 1)
-        print(total_lengths)
