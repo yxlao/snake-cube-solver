@@ -27,16 +27,17 @@ class SnakeCubeSolver(object):
         self._dim = int(dim)
         self._num_cells = self._dim ** 3
         self._segment_lengths = None
-        self._is_middle_cell = None
+        self._is_joint_cell = None
 
     def input_segment_lengths(self, segment_lengths):
         self._segment_lengths = segment_lengths
-        self._is_middle_cell = self._segment_lengths_to_middle_cell()
+        self._is_joint_cell = self._segment_lengths_to_is_joint_cell(segment_lengths)
 
     def solve(self):
         # sanity check
         assert self._segment_lengths is not None
-        assert self._is_middle_cell is not None
+        assert self._is_joint_cell is not None
+        assert np.sum(segment_lengths) == self._num_cells
 
         # map of the filled cells
         filled_cells = np.zeros((self._dim, self._dim, self._dim), dtype=bool)
@@ -49,23 +50,22 @@ class SnakeCubeSolver(object):
 
         return self._solve(0, filled_cells, cell_locations, cell_axes)
 
-    def _segment_lengths_to_middle_cell(self):
+    def _segment_lengths_to_is_joint_cell(self, segment_lengths):
         # determine middle cells
         # that is, the cell's input and output axes are parallel
-        is_middle_cell = np.zeros((self._num_cells,), dtype=bool)
+        is_joint_cell = np.zeros((self._num_cells,), dtype=bool)
         segment_lengths_cumsum = np.cumsum(segment_lengths)
         for segment_index, segment_length in enumerate(segment_lengths):
-            start_cell_index = segment_lengths_cumsum[
-                segment_index - 1] if segment_index > 0 else 0
-            end_cell_index = start_cell_index + segment_length - 1
-            if start_cell_index == end_cell_index:
-                # case 1: length is 1
-                is_middle_cell[start_cell_index] = True
-            else:
-                # case 2: length is n > 1, and the cell is not the 0th or the (n-1)th
-                for i in range(start_cell_index + 1, end_cell_index):
-                    is_middle_cell[i] = True
-        return is_middle_cell
+            # get start and end index of joints
+            end_cell_index = segment_lengths_cumsum[segment_index] - 1
+            start_cell_index = end_cell_index - segment_length + 1
+
+            # if length >= 2, then start and end are joints
+            if end_cell_index - start_cell_index >= 1:
+                is_joint_cell[start_cell_index] = True
+                is_joint_cell[end_cell_index] = True
+
+        return is_joint_cell
 
     def _get_location(self, prev_location, prev_axis, filled_cells):
         x, y, z = prev_location
@@ -115,10 +115,10 @@ class SnakeCubeSolver(object):
         if index == self._num_cells - 1:
             return (cell_locations, cell_axes)
 
-        if self._is_middle_cell[index]:
-            axes = [cell_axes[index - 1]]
-        else:
+        if self._is_joint_cell[index]:
             axes = SnakeCubeSolver._orthogonal_axis_map[cell_axes[index - 1]]
+        else:
+            axes = [cell_axes[index - 1]]
         for axis in axes:
             # fill axis
             cell_axes[index] = axis
