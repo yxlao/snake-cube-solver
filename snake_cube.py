@@ -1,7 +1,6 @@
-import numpy as np
 import itertools
-from itertools import groupby
-from pprint import pprint
+import pprint
+import numpy as np
 
 
 class SnakeCubeSolver(object):
@@ -130,7 +129,7 @@ class SnakeCubeSolver(object):
         if self._is_joint_cell[index]:
             axes = SnakeCubeSolver._orthogonal_axis_map[cell_axes[index - 1]]
         else:
-            axes = [cell_axes[index - 1]]
+            axes = (cell_axes[index - 1],)
         for axis in axes:
             # fill axis
             cell_axes[index] = axis
@@ -149,11 +148,11 @@ class SnakeCubeSolver(object):
     def pprint_solution(self):
         assert self.solved
         grouped_cell_axes = [(k, sum(1 for i in g)) for k, g in
-                             groupby(self._solution_cell_axes)]
+                             itertools.groupby(self._solution_cell_axes)]
         grouped_cell_axes = [(SnakeCubeSolver._pprint_axis_translate[x], y + 1)
                              for (x, y) in grouped_cell_axes]
 
-        pprint(grouped_cell_axes)
+        pprint.pprint(grouped_cell_axes)
 
 
 if __name__ == '__main__':
