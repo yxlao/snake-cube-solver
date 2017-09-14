@@ -22,6 +22,14 @@ class SnakeCubeSolver(object):
         '+z': ('+x', '-x', '+y', '-y'),
         '-z': ('+x', '-x', '+y', '-y')
     }
+    _pprint_axis_translate = {
+        '+x': 'front',
+        '-x': 'back',
+        '+y': 'right',
+        '-y': 'left',
+        '+z': 'up',
+        '-z': 'down'
+    }
 
     def __init__(self, dim):
         self._dim = int(dim)
@@ -29,13 +37,17 @@ class SnakeCubeSolver(object):
         self._segment_lengths = None
         self._is_joint_cell = None
 
+        self._solution_cell_locations = None
+        self._solution_cell_axes = None
+        self.solved = False
+
     def input_segment_lengths(self, segment_lengths):
         self._segment_lengths = segment_lengths
-        self._is_joint_cell = self._segment_lengths_to_is_joint_cell(segment_lengths)
+        self._is_joint_cell = self._segment_lengths_to_is_joint_cell(
+            segment_lengths)
 
     def solve(self):
         # sanity check
-        assert self._segment_lengths is not None
         assert self._is_joint_cell is not None
         assert np.sum(segment_lengths) == self._num_cells
 
@@ -64,7 +76,6 @@ class SnakeCubeSolver(object):
             if end_cell_index - start_cell_index >= 1:
                 is_joint_cell[start_cell_index] = True
                 is_joint_cell[end_cell_index] = True
-
         return is_joint_cell
 
     def _get_location(self, prev_location, prev_axis, filled_cells):
@@ -90,22 +101,20 @@ class SnakeCubeSolver(object):
                     cell_axes[0] = init_axis
                     filled_cells[cell_locations[0]] = True
                     # solve
-                    res = self._solve(1, filled_cells, cell_locations,
-                                      cell_axes)
-                    if res is not None:
-                        return res
+                    if self._solve(1, filled_cells, cell_locations, cell_axes):
+                        return True
                     # clean up
                     filled_cells[cell_locations[0]] = False
                     cell_locations[0] = None
                     cell_axes[0] = None
-            return None
+            return False
 
         # get location
         location = self._get_location(cell_locations[index - 1],
                                       cell_axes[index - 1],
                                       filled_cells)
         if location is None:
-            return None
+            return False
 
         # fill
         cell_locations[index] = location
@@ -113,7 +122,10 @@ class SnakeCubeSolver(object):
 
         # if index == self._num_cells - 1, then done
         if index == self._num_cells - 1:
-            return (cell_locations, cell_axes)
+            self._solution_cell_axes = cell_axes
+            self._solution_cell_locations = cell_locations
+            self.solved = True
+            return True
 
         if self._is_joint_cell[index]:
             axes = SnakeCubeSolver._orthogonal_axis_map[cell_axes[index - 1]]
@@ -123,10 +135,8 @@ class SnakeCubeSolver(object):
             # fill axis
             cell_axes[index] = axis
             # try solving recursively
-            res = self._solve(index + 1, filled_cells, cell_locations,
-                              cell_axes)
-            if res is not None:
-                return res
+            if self._solve(index + 1, filled_cells, cell_locations, cell_axes):
+                return True
             # clean up
             cell_axes[index] = None
 
@@ -134,33 +144,22 @@ class SnakeCubeSolver(object):
         cell_locations[index] = None
         filled_cells[location] = False
 
-        return None
+        return False
+
+    def pprint_solution(self):
+        assert self.solved
+        grouped_cell_axes = [(k, sum(1 for i in g)) for k, g in
+                             groupby(self._solution_cell_axes)]
+        grouped_cell_axes = [(SnakeCubeSolver._pprint_axis_translate[x], y + 1)
+                             for (x, y) in grouped_cell_axes]
+
+        pprint(grouped_cell_axes)
 
 
 if __name__ == '__main__':
-    # input data
-    segment_lengths = np.array(
-        [3, 3, 2, 1, 1, 2, 1, 2, 1, 2, 1, 2, 2, 2, 2, 3, 1, 2, 2, 2, 1, 4, 2, 4,
-         3, 2, 2, 2, 2, 4, 1], dtype=int)
-
+    segment_lengths = [3, 3, 2, 1, 1, 2, 1, 2, 1, 2, 1, 2, 2, 2, 2, 3, 1, 2, 2,
+                       2, 1, 4, 2, 4, 3, 2, 2, 2, 2, 4, 1]
     solver = SnakeCubeSolver(4)
     solver.input_segment_lengths(segment_lengths)
-    res = solver.solve()
-
-    if res is not None:
-        cell_locations, cell_axes = res
-
-        translate = {
-            '+x': 'front',
-            '-x': 'back',
-            '+y': 'right',
-            '-y': 'left',
-            '+z': 'up',
-            '-z': 'down'
-        }
-        grouped_cell_axes = [(k, sum(1 for i in g)) for k, g in
-                             groupby(cell_axes)]
-        grouped_cell_axes = [(translate[x], y + 1) for (x, y) in
-                             grouped_cell_axes]
-
-        pprint(grouped_cell_axes)
+    if solver.solve():
+        solver.pprint_solution()
