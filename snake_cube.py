@@ -6,7 +6,7 @@ from pprint import pprint
 
 class SnakeCubeSolver(object):
     _all_axes = ['+x', '-x', '+y', '-y', '+z', '-z']
-    _map_axis_location_delta = {
+    _axis_location_delta_map = {
         '+x': (1, 0, 0),
         '-x': (-1, 0, 0),
         '+y': (0, 1, 0),
@@ -14,16 +14,28 @@ class SnakeCubeSolver(object):
         '+z': (0, 0, 1),
         '-z': (0, 0, -1)
     }
+    _orthogonal_axis_map = {
+        '+x': ('+y', '-y', '+z', '-z'),
+        '-x': ('+y', '-y', '+z', '-z'),
+        '+y': ('+x', '-x', '+z', '-z'),
+        '-y': ('+x', '-x', '+z', '-z'),
+        '+z': ('+x', '-x', '+y', '-y'),
+        '-z': ('+x', '-x', '+y', '-y')
+    }
 
     def __init__(self):
-        self.segment_lengths = None
-        self.is_middle_cell = None
+        self._segment_lengths = None
+        self._is_middle_cell = None
 
     def input_segment_lengths(self, segment_lengths):
-        self.segment_lengths = segment_lengths
-        self.is_middle_cell = self._segment_lengths_to_middle_cell()
+        self._segment_lengths = segment_lengths
+        self._is_middle_cell = self._segment_lengths_to_middle_cell()
 
     def solve(self):
+        # sanity check
+        assert self._segment_lengths is not None
+        assert self._is_middle_cell is not None
+
         # map of the filled cells
         filled_cells = np.zeros((4, 4, 4), dtype=bool)
 
@@ -55,7 +67,7 @@ class SnakeCubeSolver(object):
 
     def _get_location(self, prev_location, prev_axis, filled_cells):
         x, y, z = prev_location
-        dx, dy, dz = SnakeCubeSolver._map_axis_location_delta[prev_axis]
+        dx, dy, dz = SnakeCubeSolver._axis_location_delta_map[prev_axis]
         location = x + dx, y + dy, z + dz
         for val in location:
             if val >= 4 or val < 0:
@@ -63,17 +75,6 @@ class SnakeCubeSolver(object):
         if filled_cells[location] == True:
             return None
         return location
-
-    def _get_axes(self, cell_index, prev_axis):
-        assert prev_axis in SnakeCubeSolver._all_axes
-        if self.is_middle_cell[cell_index]:
-            return [prev_axis]
-        if prev_axis in {'+x', '-x'}:
-            return ['+y', '-y', '+z', '-z']
-        if prev_axis in {'+y', '-y'}:
-            return ['+x', '-x', '+z', '-z']
-        if prev_axis in {'+z', '-z'}:
-            return ['+x', '-x', '+y', '-y']
 
     def _solve(self, index, filled_cells, cell_locations, cell_axes):
         # base case
@@ -111,8 +112,10 @@ class SnakeCubeSolver(object):
         if index == 63:
             return (cell_locations, cell_axes)
 
-        # get axes
-        axes = self._get_axes(index, cell_axes[index - 1])
+        if self._is_middle_cell(index):
+            axes = [cell_axes[index - 1]]
+        else:
+            axes = SnakeCubeSolver._orthogonal_axis_map[cell_axes[index - 1]]
         for axis in axes:
             # fill axis
             cell_axes[index] = axis
